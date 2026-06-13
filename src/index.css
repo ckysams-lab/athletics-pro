@@ -1,7 +1,6 @@
 /* src/index.css */
 @import "tailwindcss";
 
-/* 這裡放我們自訂的卷軸樣式，其他 Vite 預設的置中樣式全部刪除！ */
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -15,10 +14,12 @@
   }
 }
 
-/* 強制清除可能殘留的 margin 和 padding */
+/* 確保全螢幕高度與重置 margin */
 html, body, #root {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
+  background-color: #030712; /* gray-950 背景色，避免載入時閃白 */
+  color: white;
 }
