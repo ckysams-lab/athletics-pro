@@ -194,12 +194,10 @@ const PreparationPage = () => {
             </button>
 
             {/* 👉 新增的產生決賽按鈕 */}
-            <button 
-              onClick={handleGenerateFinal} 
+            <button onClick={handleGenerateFinal} 
               disabled={existingHeats.length === 0}
-              className={`font-bold py-3 px-6 rounded-lg transition-colors ${existingHeats.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]'}`}
-            >
-              {/* 👑 整合初賽成績 ➔ 產生決賽名單 */}
+              className={`font-bold py-3 px-6 rounded-lg transition-colors ${existingHeats.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]'}`}>
+              2. 👑 整合初賽成績 ➔ 產生決賽名單 
             </button>
 
             <button onClick={handleSaveToFirebase} disabled={currentSchedule.races.length === 0 || isSaving} className={`font-bold py-3 px-6 rounded-lg transition-colors ${currentSchedule.races.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : isSaving ? 'bg-amber-600 hover:bg-amber-500 animate-pulse text-white' : 'bg-amber-500 hover:bg-amber-400 text-white'}`}>
