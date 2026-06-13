@@ -8,6 +8,7 @@ import PreparationPage from './pages/PreparationPage';
 import StartListPrint from './pages/StartListPrint';
 import UmpireConsole from './pages/UmpireConsole';
 import LiveArena from './pages/LiveArena';
+import LeaguePage from './pages/LeaguePage'; 
 
 function App() {
   return (
