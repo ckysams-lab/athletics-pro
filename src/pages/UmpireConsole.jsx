@@ -1,7 +1,7 @@
 // src/pages/UmpireConsole.jsx
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
 
 const UmpireConsole = () => {
   const [pendingRaces, setPendingRaces] = useState([]);
@@ -77,6 +77,7 @@ const UmpireConsole = () => {
     setSelectedRace({ ...selectedRace, entries: newEntries });
   };
 
+  // 提交官方成績到 Firebase (包含自動計分)
   const handleSubmitResults = async () => {
     if (!selectedRace) return;
 
@@ -88,21 +89,60 @@ const UmpireConsole = () => {
 
     setIsSubmitting(true);
     try {
-      const finalizedEntries = selectedRace.entries.map(entry => ({
+      const batch = writeBatch(db); // 使用 Batch 確保成績與積分同時寫入
+      
+      // 1. 處理成績與排序
+      let finalizedEntries = selectedRace.entries.map(entry => ({
         ...entry,
         performanceValue: entry.entryStatus === 'VALID' ? parseFloat(entry.performanceValue) || null : null,
         displayMark: entry.entryStatus === 'VALID' && entry.performanceValue ? `${entry.performanceValue}s` : entry.entryStatus
       }));
 
+      // 只有決賽 (FINAL) 才需要計算名次和積分
+      if (selectedRace.stage === 'FINAL') {
+        // 將有效成績挑出來排序 (由小到大，秒數越少越快)
+        const validEntries = finalizedEntries.filter(e => e.entryStatus === 'VALID' && e.performanceValue !== null);
+        validEntries.sort((a, b) => a.performanceValue - b.performanceValue);
+
+        // 定義積分規則 (1st->9, 2nd->7, 3rd->6, 4th->5, 5th->4, 6th->3, 7th->2, 8th->1)
+        const pointsRule = [9, 7, 6, 5, 4, 3, 2, 1];
+
+        // 給予名次 (rank) 與積分 (points)
+        validEntries.forEach((entry, index) => {
+          entry.rank = index + 1;
+          entry.points = pointsRule[index] || 0; // 如果超過 8 名則 0 分
+          
+          // 更新原本陣列裡的資料
+          const originalEntry = finalizedEntries.find(e => e.lane === entry.lane);
+          originalEntry.rank = entry.rank;
+          originalEntry.points = entry.points;
+
+          // 👉 關鍵：將積分寫入班級總分 (class_standings 集合的得分紀錄表)
+          // 這邊利用 doc(collection(...)) 產生自動 ID 來寫入獨立的 log
+          const scoreRecordRef = doc(collection(db, 'score_logs'));
+          batch.set(scoreRecordRef, {
+            class: entry.class,
+            studentName: entry.name,
+            eventId: selectedRace.eventId,
+            points: entry.points,
+            rank: entry.rank,
+            timestamp: new Date().toISOString()
+          });
+        });
+      }
+
+      // 2. 更新賽事狀態為 OFFICIAL
       const raceRef = doc(db, 'races', selectedRace.id);
-      
-      await updateDoc(raceRef, {
+      batch.update(raceRef, {
         entries: finalizedEntries,
         status: "OFFICIAL", 
         updatedAt: new Date().toISOString()
       });
 
-      alert("✅ 官方成績已發佈！大屏幕即將同步更新。");
+      // 3. 提交所有變更
+      await batch.commit();
+
+      alert("✅ 官方成績已發佈！" + (selectedRace.stage === 'FINAL' ? "班際積分已同步派發。" : "大屏幕即將同步。"));
       setSelectedRace(null); 
       fetchRaces(); 
     } catch (error) {
@@ -213,7 +253,6 @@ const UmpireConsole = () => {
                       <div>
                         <div className="text-xl font-bold text-gray-100 flex items-center gap-2">
                           {entry.name}
-                          {/* 👉 這裡顯示他初賽的成績 (如果是決賽的話) */}
                           {entry.qualification && (
                             <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
                               {entry.qualification}
