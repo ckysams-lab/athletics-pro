@@ -1,12 +1,14 @@
 // src/components/Layout.jsx
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, Timer, MonitorPlay, Printer } from 'lucide-react';
+import { LayoutDashboard, Users, Timer, MonitorPlay, Printer, Trophy } from 'lucide-react'; // 👉 確保引入了 Trophy
 
 const Layout = () => {
   const navItems = [
     { path: '/', name: '賽事準備中心', icon: <LayoutDashboard size={20} /> },
     { path: '/umpire', name: '裁判終端機', icon: <Timer size={20} /> },
+    // 👉 這是你找不到的積分榜按鈕！
+    { path: '/league', name: '班際積分榜', icon: <Trophy size={20} /> }, 
     { path: '/live', name: '大屏幕轉播', icon: <MonitorPlay size={20} /> },
     { path: '/print', name: '列印線道表', icon: <Printer size={20} /> },
   ];
@@ -14,8 +16,7 @@ const Layout = () => {
   return (
     <div className="flex h-screen bg-gray-950 text-white font-sans overflow-hidden">
       
-      {/* 側邊導覽列 (Sidebar) - Glassmorphism 風格 */}
-      <aside className="w-64 bg-gray-900/50 backdrop-blur-xl border-r border-gray-800 flex flex-col hidden md:flex">
+      <aside className="w-64 bg-gray-900/50 backdrop-blur-xl border-r border-gray-800 flex flex-col hidden md:flex z-50">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tracking-wider">
             ATHLETICS PRO
@@ -42,7 +43,6 @@ const Layout = () => {
           ))}
         </nav>
 
-        {/* 底部使用者資訊 */}
         <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 px-4 py-2 bg-gray-800/50 rounded-lg">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-400 to-blue-500 flex items-center justify-center font-bold text-sm shadow-lg">
@@ -56,13 +56,10 @@ const Layout = () => {
         </div>
       </aside>
 
-      {/* 主要內容區塊 */}
       <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-        {/* 背景裝飾光暈 */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
         
-        {/* 子頁面內容會渲染在這裡 */}
         <Outlet />
       </main>
     </div>
