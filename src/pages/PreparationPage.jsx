@@ -1,6 +1,6 @@
 // src/pages/PreparationPage.jsx
 import React, { useState, useEffect } from 'react';
-import { generateTrackRaces, generateFinalFromHeats } from '../utils/scheduler';
+import { generateTrackRaces, generateFinalFromHeats, generateFieldEvent } from '../utils/scheduler';
 import { db } from '../firebase/config';
 import { writeBatch, doc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import CSVUploader from '../components/CSVUploader'; 
@@ -17,7 +17,6 @@ const PreparationPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [existingHeats, setExistingHeats] = useState([]);
 
-  // 👉 新增：儲存所有已建立的賽事，用來顯示在總覽表
   const [allRaces, setAllRaces] = useState([]);
 
   const fetchStudentsFromFirebase = async () => {
@@ -37,7 +36,6 @@ const PreparationPage = () => {
     }
   };
 
-  // 👉 新增：即時監聽所有的賽事，讓總覽表能自動更新
   useEffect(() => {
     fetchStudentsFromFirebase();
 
@@ -46,7 +44,6 @@ const PreparationPage = () => {
       const racesData = [];
       snapshot.forEach(doc => racesData.push({ id: doc.id, ...doc.data() }));
       
-      // 排序：先排項目，再排階段 (HEAT -> FINAL)，再排組別
       racesData.sort((a, b) => {
         if (a.eventId !== b.eventId) return a.eventId.localeCompare(b.eventId);
         if (a.stage !== b.stage) return a.stage === 'HEAT' ? -1 : 1;
@@ -99,13 +96,12 @@ const PreparationPage = () => {
     }
 
     let result = [];
-    if (currentSchedule.category === EVENT_CATEGORIES.TRACK || currentSchedule.category === EVENT_CATEGORIES.RELAY) {
-      result = generateTrackRaces(currentSchedule.eventId, eligibleStudents, currentSchedule.def.lanes);
+    
+    // 👉 智能判斷：如果是田賽，就使用田賽專屬引擎 (產生單一無人數上限的決賽)
+    if (currentSchedule.category === EVENT_CATEGORIES.FIELD) {
+      result = generateFieldEvent(currentSchedule.eventId, eligibleStudents);
     } else {
-      result = [{
-        id: `${currentSchedule.eventId}_FINAL`, eventId: currentSchedule.eventId, stage: "FINAL", groupNo: 1, status: "PENDING",
-        entries: eligibleStudents.map((student, i) => ({ ...student, lane: i + 1 }))
-      }];
+      result = generateTrackRaces(currentSchedule.eventId, eligibleStudents, currentSchedule.def.lanes);
     }
 
     setCurrentSchedule(prev => ({ ...prev, races: result }));
@@ -147,7 +143,6 @@ const PreparationPage = () => {
     }
   };
 
-  // 👉 刪除賽事的函數 (大會處的特權)
   const handleDeleteRace = async (raceId) => {
     const confirmDelete = window.confirm("⚠️ 確定要刪除這場賽事嗎？(若已產生決賽，可能會有連帶影響)");
     if (!confirmDelete) return;
@@ -218,17 +213,19 @@ const PreparationPage = () => {
 
           <div className="flex flex-wrap gap-4 mb-8">
             <button onClick={handleGenerateHeats} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-              1. ⚡ 自動編排初賽名單
+              1. ⚡ {currentSchedule.category === EVENT_CATEGORIES.FIELD ? '自動編排決賽出場序' : '自動編排初賽名單'}
             </button>
 
-            <button 
-              onClick={handleGenerateFinal} 
-              disabled={existingHeats.length === 0}
-              className={`font-bold py-3 px-6 rounded-lg transition-colors ${existingHeats.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]'}`}
-            >
-              {/* 這裡的符號已經被修正過了，不會再報錯 */}
-              👑 整合初賽成績 ➔ 產生決賽名單
-            </button>
+            {/* 田賽沒有初賽，所以不顯示產生決賽按鈕 */}
+            {currentSchedule.category !== EVENT_CATEGORIES.FIELD && (
+              <button 
+                onClick={handleGenerateFinal} 
+                disabled={existingHeats.length === 0}
+                className={`font-bold py-3 px-6 rounded-lg transition-colors ${existingHeats.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(147,51,234,0.3)]'}`}
+              >
+                👑 整合初賽成績 ➔ 產生決賽名單
+              </button>
+            )}
 
             <button onClick={handleSaveToFirebase} disabled={currentSchedule.races.length === 0 || isSaving} className={`font-bold py-3 px-6 rounded-lg transition-colors ${currentSchedule.races.length === 0 ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700' : isSaving ? 'bg-amber-600 hover:bg-amber-500 animate-pulse text-white' : 'bg-amber-500 hover:bg-amber-400 text-white'}`}>
               {isSaving ? "寫入中..." : "☁️ 確定儲存預覽賽程至資料庫"}
@@ -243,7 +240,9 @@ const PreparationPage = () => {
                   {race.entries.map(entry => (
                     <div key={entry.lane} className="flex justify-between items-center bg-gray-800 p-2 rounded border border-gray-700">
                       <div className="flex items-center gap-3">
-                        <span className="text-amber-500 font-mono text-xs w-6 text-center">L{entry.lane}</span>
+                        <span className="text-amber-500 font-mono text-xs w-6 text-center">
+                          {currentSchedule.category === EVENT_CATEGORIES.FIELD ? 'O' : 'L'}{entry.lane}
+                        </span>
                         <span className="font-bold text-gray-200">{entry.name}</span> 
                         {entry.qualification && <span className="text-xs text-purple-400 ml-1">{entry.qualification}</span>}
                       </div>
@@ -257,7 +256,6 @@ const PreparationPage = () => {
         </div>
       )}
 
-      {/* 👉 全新區塊：所有已排定的賽事總覽 */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl">
         <h2 className="text-2xl font-bold text-emerald-400 mb-6 flex items-center gap-2">
           <span>📅</span> 已排定賽事總覽
@@ -299,7 +297,6 @@ const PreparationPage = () => {
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      {/* 提供刪除按鈕，讓老師如果不小心排錯了可以刪掉 */}
                       <button 
                         onClick={() => handleDeleteRace(race.id)}
                         className="text-gray-500 hover:text-red-400 transition-colors text-sm px-2 py-1 bg-gray-950 rounded border border-gray-800 hover:border-red-500/30"
