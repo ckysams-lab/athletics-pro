@@ -9,6 +9,7 @@ const shuffleArray = (array) => {
   return shuffled;
 };
 
+// 👉 徑賽編排引擎 (維持不變)
 export const generateTrackRaces = (eventId, entries, maxLanes = 8) => {
   const totalEntries = entries.length;
   if (totalEntries === 0) return [];
@@ -52,6 +53,30 @@ export const generateTrackRaces = (eventId, entries, maxLanes = 8) => {
   });
 };
 
+// 👉 新增：田賽編排引擎 (只有一場決賽，人數無上限)
+export const generateFieldEvent = (eventId, entries) => {
+  const totalEntries = entries.length;
+  if (totalEntries === 0) return [];
+  
+  // 打亂順序，確保公平
+  const randomizedEntries = shuffleArray(entries);
+
+  const entriesWithOrder = randomizedEntries.map((student, index) => ({
+    ...student, 
+    lane: index + 1 // 雖然變數名叫 lane，但在田賽中代表 Order(出場序)
+  }));
+
+  return [{
+    id: `${eventId}_FINAL`,
+    eventId: eventId, 
+    stage: "FINAL", 
+    groupNo: 1, 
+    status: "PENDING", 
+    entries: entriesWithOrder
+  }];
+};
+
+// 👉 晉級引擎 (維持不變)
 export const generateFinalFromHeats = (eventId, completedHeats, finalLanes = 8) => {
   if (!completedHeats || completedHeats.length === 0) return null;
 
@@ -63,7 +88,6 @@ export const generateFinalFromHeats = (eventId, completedHeats, finalLanes = 8) 
   let allResults = [];
   completedHeats.forEach(heat => {
     heat.entries.forEach(entry => {
-      // 確保排除沒有成績或未填寫的資料
       if (entry.entryStatus === 'VALID' && entry.performanceValue !== null && entry.performanceValue !== '') {
         allResults.push(entry);
       }
@@ -82,7 +106,6 @@ export const generateFinalFromHeats = (eventId, completedHeats, finalLanes = 8) 
   const entriesWithLanes = finalists.map((student, index) => {
     const assignedLane = laneAssignmentOrder[index] || (index + 1); 
     return {
-      // 👉 治本：給予所有潛在的 undefined 預設值
       studentRef: student.studentRef || null,
       name: student.name || "未知",
       class: student.class || "未知",
