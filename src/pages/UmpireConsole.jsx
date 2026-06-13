@@ -313,71 +313,80 @@ const UmpireConsole = () => {
                 {/* 輸入區塊 */}
                 <div className={`space-y-4 ${selectedRace.stage === 'FINAL' ? 'lg:w-2/3' : 'w-full'}`}>
                   {selectedRace.entries.map((entry) => (
-                    <div 
-                      key={entry.lane} 
-                      className={`flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border transition-colors gap-4 ${
-                        entry.entryStatus === 'VALID' 
-                          ? 'bg-gray-800 border-gray-700' 
-                          : 'bg-red-950/30 border-red-500/30 opacity-75'
-                      }`}
-                    >
-                      <div className="flex items-center gap-4 w-full md:w-1/3">
+                  <div 
+                    key={entry.lane} 
+                    className={`flex flex-col p-4 rounded-xl border transition-colors gap-3 ${
+                      entry.entryStatus === 'VALID' 
+                        ? 'bg-gray-800 border-gray-700' 
+                        : 'bg-red-950/30 border-red-500/30 opacity-75'
+                    }`}
+                  >
+                    {/* 上層：選手資訊與狀態切換按鈕 */}
+                    <div className="flex items-center justify-between border-b border-gray-700/50 pb-3">
+                      <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-lg bg-gray-900 border border-gray-700 flex flex-col items-center justify-center shrink-0">
                           <span className="text-[9px] text-gray-500 font-bold">{selectedRace.isFieldEvent ? 'ORDER' : 'LANE'}</span>
                           <span className="text-lg font-black text-white leading-none">{entry.lane}</span>
                         </div>
                         <div>
-                          <div className="text-lg font-bold text-gray-100">{entry.name}</div>
+                          <div className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                            {entry.name}
+                            {entry.qualification && (
+                              <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30 shrink-0">
+                                {entry.qualification}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-xs font-mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded mt-1 inline-block">
                             {entry.class}
                           </div>
                         </div>
                       </div>
 
-                      {/* 👉 動態切換：田賽輸入介面 vs 徑賽輸入介面 */}
-                      <div className="flex items-center gap-3 w-full md:w-2/3 justify-end">
-                        
-                        {/* 狀態按鈕 */}
-                        <div className="flex bg-gray-950 rounded-lg p-1 border border-gray-800 shrink-0">
-                           <button onClick={() => handleStatusChange(entry.lane, 'VALID')} className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'VALID' ? 'bg-blue-600 text-white' : 'text-gray-500'}`}>正常</button>
-                          <button onClick={() => handleStatusChange(entry.lane, 'ABS')} className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'ABS' ? 'bg-orange-600 text-white' : 'text-gray-500'}`}>ABS</button>
-                          <button onClick={() => handleStatusChange(entry.lane, 'DQ')} className={`px-2 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'DQ' ? 'bg-red-600 text-white' : 'text-gray-500'}`}>DQ</button>
-                        </div>
+                      {/* 狀態按鈕移到右上角 */}
+                      <div className="flex bg-gray-950 rounded-lg p-1 border border-gray-800 shrink-0">
+                         <button onClick={() => handleStatusChange(entry.lane, 'VALID')} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'VALID' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}>正常</button>
+                        <button onClick={() => handleStatusChange(entry.lane, 'ABS')} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'ABS' ? 'bg-orange-600 text-white' : 'text-gray-500 hover:text-white'}`}>ABS</button>
+                        <button onClick={() => handleStatusChange(entry.lane, 'DQ')} className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${entry.entryStatus === 'DQ' ? 'bg-red-600 text-white' : 'text-gray-500 hover:text-white'}`}>DQ</button>
+                      </div>
+                    </div>
 
-                        {selectedRace.isFieldEvent ? (
-                          /* 田賽：三次輸入框 + 最佳成績顯示 */
-                          <div className="flex items-center gap-2">
-                            {[0, 1, 2].map(attemptIdx => (
+                    {/* 下層：成績輸入區塊 (佔滿整個寬度，保證不擠壓) */}
+                    <div className="flex items-center justify-end w-full">
+                      {selectedRace.isFieldEvent ? (
+                        /* 田賽：三次輸入框 + 最佳成績顯示 */
+                        <div className="flex flex-wrap items-center justify-end gap-2 w-full">
+                          {[0, 1, 2].map(attemptIdx => (
+                            <div key={attemptIdx} className="relative">
                               <input 
-                                key={attemptIdx}
                                 type="number" step="0.01" placeholder={`第${attemptIdx+1}次`}
                                 value={entry.attempts[attemptIdx]}
                                 onChange={(e) => handleFieldScoreChange(entry.lane, attemptIdx, e.target.value)}
                                 disabled={entry.entryStatus !== 'VALID'}
-                                className="w-16 text-center text-sm font-mono p-2 rounded bg-gray-950 border border-gray-700 text-white focus:border-emerald-500 focus:outline-none"
+                                className="w-20 text-center text-lg font-bold font-mono py-2 px-1 rounded bg-gray-950 border border-gray-700 text-white focus:border-emerald-500 focus:outline-none placeholder-gray-600"
                               />
-                            ))}
-                            <div className="w-20 ml-2 bg-emerald-900/30 border border-emerald-500/50 rounded p-2 text-center">
-                              <div className="text-[9px] text-emerald-500 font-bold mb-1">最佳(m)</div>
-                              <div className="font-bold font-mono text-emerald-400">{entry.performanceValue || '-'}</div>
                             </div>
+                          ))}
+                          <div className="w-24 ml-2 bg-emerald-900/20 border-2 border-emerald-500/50 rounded-lg p-2 text-center shadow-inner">
+                            <div className="text-[10px] text-emerald-500 font-black mb-1 uppercase tracking-widest">最佳(m)</div>
+                            <div className="text-xl font-black font-mono text-emerald-400 leading-none">{entry.performanceValue || '-'}</div>
                           </div>
-                        ) : (
-                          /* 徑賽：單次巨大輸入框 */
-                          <div className="relative">
-                            <input 
-                              type="number" step="0.01" placeholder="00.00" value={entry.performanceValue}
-                              onChange={(e) => handleTrackScoreChange(entry.lane, e.target.value)}
-                              disabled={entry.entryStatus !== 'VALID'}
-                              className="w-28 text-right text-2xl font-black font-mono p-2 rounded-lg bg-gray-950 border border-gray-700 text-white focus:border-blue-500 focus:outline-none"
-                            />
-                            <span className="absolute right-3 bottom-1 text-xs font-bold text-gray-600">s</span>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        /* 徑賽：單次巨大輸入框 */
+                        <div className="relative">
+                          <input 
+                            type="number" step="0.01" placeholder="00.00" value={entry.performanceValue}
+                            onChange={(e) => handleTrackScoreChange(entry.lane, e.target.value)}
+                            disabled={entry.entryStatus !== 'VALID'}
+                            className="w-32 text-right text-3xl font-black font-mono p-2 rounded-lg bg-gray-950 border border-gray-700 text-white focus:border-blue-500 focus:outline-none"
+                          />
+                          <span className="absolute right-3 bottom-1 text-xs font-bold text-gray-600">s</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
 
                 {/* 積分預覽區塊 */}
                 {selectedRace.stage === 'FINAL' && (
