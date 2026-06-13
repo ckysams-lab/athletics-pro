@@ -48,7 +48,8 @@ const UmpireConsole = () => {
   }, []);
 
   const handleSelectRace = (race) => {
-    const isFieldEvent = !race.eventId.includes('M') && !race.eventId.includes('RELAY');
+    // 👉 修復：改用 JUMP 或 BALL 來精準判斷田賽，避免被 男子(M) 誤導
+    const isFieldEvent = race.eventId.includes('JUMP') || race.eventId.includes('BALL');
     
     const raceWithInputState = {
       ...race,
@@ -249,7 +250,8 @@ const UmpireConsole = () => {
           ) : (
             <div className="space-y-3">
               {pendingRaces.map(race => {
-                const isField = !race.eventId.includes('M') && !race.eventId.includes('RELAY');
+                // 👉 修復：改用 JUMP 或 BALL 來判斷是否為田賽
+                const isField = race.eventId.includes('JUMP') || race.eventId.includes('BALL');
                 return (
                   <button
                     key={race.id}
@@ -270,7 +272,7 @@ const UmpireConsole = () => {
                     <div className="text-lg font-bold text-white">{race.eventId}</div>
                     <div className="text-sm text-gray-400 mt-2 flex justify-between">
                       <span>參賽人數: {race.entries.length}</span>
-                      <span className="text-blue-400">點擊輸入成績 ➔</span>
+                      <span className="text-blue-400">點擊輸入 ➔</span>
                     </div>
                   </button>
                 )
@@ -297,6 +299,7 @@ const UmpireConsole = () => {
                   <h2 className="text-3xl font-black tracking-wide">{selectedRace.eventId}</h2>
                   <div className="text-gray-400 mt-1">
                     {selectedRace.stage === 'FINAL' ? '🏆 決賽' : `初賽 - 第 ${selectedRace.groupNo} 組`}
+                    {selectedRace.eventId.includes('RELAY') && <span className="ml-2 text-blue-400 font-bold">(接力賽雙倍積分)</span>}
                   </div>
                 </div>
                 <div className="text-right">
@@ -310,7 +313,7 @@ const UmpireConsole = () => {
 
               <div className="flex flex-col lg:flex-row gap-6 mb-8">
                 
-                {/* 輸入區塊 (防擠壓雙層排版) */}
+                {/* 輸入區塊 */}
                 <div className={`space-y-4 ${selectedRace.stage === 'FINAL' ? 'lg:w-2/3' : 'w-full'}`}>
                   {selectedRace.entries.map((entry) => (
                     <div 
@@ -321,7 +324,6 @@ const UmpireConsole = () => {
                           : 'bg-red-950/30 border-red-500/30 opacity-75'
                       }`}
                     >
-                      {/* 上層：選手資訊與狀態切換 */}
                       <div className="flex items-center justify-between border-b border-gray-700/50 pb-3">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-lg bg-gray-900 border border-gray-700 flex flex-col items-center justify-center shrink-0">
@@ -350,7 +352,6 @@ const UmpireConsole = () => {
                         </div>
                       </div>
 
-                      {/* 下層：成績輸入區塊 */}
                       <div className="flex items-center justify-end w-full">
                         {selectedRace.isFieldEvent ? (
                           <div className="flex flex-wrap items-center justify-end gap-2 w-full">
@@ -386,7 +387,6 @@ const UmpireConsole = () => {
                   ))}
                 </div>
 
-                {/* 積分預覽區塊 */}
                 {selectedRace.stage === 'FINAL' && (
                   <div className="lg:w-1/3 bg-gray-950 rounded-xl border border-purple-500/30 p-4">
                     <h3 className="text-purple-400 font-bold mb-4 flex items-center gap-2">
