@@ -80,7 +80,7 @@ const SettingsPage = () => {
           disabled={isSaving}
           className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl text-xl shadow-lg transition-colors"
         >
-          {isSubmitting ? "儲存中..." : "💾 儲存大會設定"}
+          {isSaving ? "儲存中..." : "💾 儲存大會設定"}
         </button>
       </div>
     </div>
