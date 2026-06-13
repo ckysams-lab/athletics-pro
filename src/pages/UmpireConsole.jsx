@@ -89,7 +89,7 @@ const UmpireConsole = () => {
 
     setIsSubmitting(true);
     try {
-      const batch = writeBatch(db); // 使用 Batch 確保成績與積分同時寫入
+      const batch = writeBatch(db); 
       
       // 1. 處理成績與排序
       let finalizedEntries = selectedRace.entries.map(entry => ({
@@ -100,34 +100,42 @@ const UmpireConsole = () => {
 
       // 只有決賽 (FINAL) 才需要計算名次和積分
       if (selectedRace.stage === 'FINAL') {
-        // 將有效成績挑出來排序 (由小到大，秒數越少越快)
         const validEntries = finalizedEntries.filter(e => e.entryStatus === 'VALID' && e.performanceValue !== null);
         validEntries.sort((a, b) => a.performanceValue - b.performanceValue);
 
-        // 定義積分規則 (1st->9, 2nd->7, 3rd->6, 4th->5, 5th->4, 6th->3, 7th->2, 8th->1)
         const pointsRule = [9, 7, 6, 5, 4, 3, 2, 1];
 
-        // 給予名次 (rank) 與積分 (points)
         validEntries.forEach((entry, index) => {
           entry.rank = index + 1;
-          entry.points = pointsRule[index] || 0; // 如果超過 8 名則 0 分
+          entry.points = pointsRule[index] || 0; 
           
-          // 更新原本陣列裡的資料
           const originalEntry = finalizedEntries.find(e => e.lane === entry.lane);
           originalEntry.rank = entry.rank;
           originalEntry.points = entry.points;
 
-          // 👉 關鍵：將積分寫入班級總分 (class_standings 集合的得分紀錄表)
-          // 這邊利用 doc(collection(...)) 產生自動 ID 來寫入獨立的 log
+          // 👉 修正：確保沒有 undefined 的值傳入 Firebase
           const scoreRecordRef = doc(collection(db, 'score_logs'));
           batch.set(scoreRecordRef, {
-            class: entry.class,
-            studentName: entry.name,
-            eventId: selectedRace.eventId,
-            points: entry.points,
-            rank: entry.rank,
+            class: entry.class || "未知",
+            studentName: entry.name || "未知",
+            eventId: selectedRace.eventId || "未知",
+            points: entry.points || 0,
+            rank: entry.rank || 0,
             timestamp: new Date().toISOString()
           });
+        });
+
+        // 👉 修正：對於沒有成績的人 (ABS, DQ)，確保他們的 rank 和 points 至少是 null 或 0
+        finalizedEntries.forEach(entry => {
+           if(entry.rank === undefined) entry.rank = null;
+           if(entry.points === undefined) entry.points = 0;
+           // 把 undefined 的 qualification 轉成 null
+           if(entry.qualification === undefined) entry.qualification = null;
+        });
+      } else {
+        // 👉 如果是初賽 (HEAT)，確保沒有遺留的 undefined 屬性
+         finalizedEntries.forEach(entry => {
+           if(entry.qualification === undefined) entry.qualification = null;
         });
       }
 
@@ -147,7 +155,7 @@ const UmpireConsole = () => {
       fetchRaces(); 
     } catch (error) {
       console.error("成績發佈失敗:", error);
-      alert("❌ 發佈失敗，請檢查網路連線。");
+      alert("❌ 發佈失敗，請檢查網路連線或 F12 Console。");
     } finally {
       setIsSubmitting(false);
     }
