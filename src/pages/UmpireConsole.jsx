@@ -95,6 +95,7 @@ const UmpireConsole = () => {
   };
 
   // 提交官方成績到 Firebase (包含自動計分)
+    // 提交官方成績到 Firebase (包含自動計分)
   const handleSubmitResults = async () => {
     if (!selectedRace) return;
 
@@ -126,33 +127,42 @@ const UmpireConsole = () => {
           entry.points = pointsRule[index] || 0; 
           
           const originalEntry = finalizedEntries.find(e => e.lane === entry.lane);
-          originalEntry.rank = entry.rank;
-          originalEntry.points = entry.points;
+          if (originalEntry) {
+            originalEntry.rank = entry.rank;
+            originalEntry.points = entry.points;
+          }
 
-          // 將積分寫入班級總分 Log (經過淨化)
-          const scoreRecordRef = doc(collection(db, 'score_logs'));
-          const logData = sanitizeForFirestore({
-            class: entry.class,
-            studentName: entry.name,
-            eventId: selectedRace.eventId,
-            points: entry.points,
-            rank: entry.rank,
+          // 準備寫入 Log 的資料
+          const rawLogData = {
+            class: entry.class || "未知",
+            studentName: entry.name || "未知",
+            eventId: selectedRace.eventId || "未知",
+            points: entry.points || 0,
+            rank: entry.rank || 0,
             timestamp: new Date().toISOString()
-          });
-          batch.set(scoreRecordRef, logData);
+          };
+
+          // 👉 暴力淨化大法：去除所有 undefined
+          const safeLogData = JSON.parse(JSON.stringify(rawLogData));
+
+          const scoreRecordRef = doc(collection(db, 'score_logs'));
+          batch.set(scoreRecordRef, safeLogData);
         });
       }
 
-      // 👉 在寫入 Firebase 前，將整份資料送入淨化器過濾
-      const updateData = sanitizeForFirestore({
+      // 準備更新賽事的資料
+      const rawUpdateData = {
         entries: finalizedEntries,
         status: "OFFICIAL", 
         updatedAt: new Date().toISOString()
-      });
+      };
+
+      // 👉 暴力淨化大法：去除所有 undefined
+      const safeUpdateData = JSON.parse(JSON.stringify(rawUpdateData));
 
       // 更新賽事狀態為 OFFICIAL
       const raceRef = doc(db, 'races', selectedRace.id);
-      batch.update(raceRef, updateData);
+      batch.update(raceRef, safeUpdateData);
 
       await batch.commit();
 
@@ -161,11 +171,12 @@ const UmpireConsole = () => {
       fetchRaces(); 
     } catch (error) {
       console.error("成績發佈失敗:", error);
-      alert("❌ 發佈失敗，請檢查網路連線。");
+      alert("❌ 發佈失敗，請看 Console。");
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="p-8 pb-32">
