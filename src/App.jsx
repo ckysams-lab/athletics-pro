@@ -7,7 +7,7 @@ import PreparationPage from './pages/PreparationPage';
 import StartListPrint from './pages/StartListPrint';
 import UmpireConsole from './pages/UmpireConsole';
 import LiveArena from './pages/LiveArena';
-// 👉 確保引入了 LeaguePage
+import SettingsPage from './pages/SettingsPage';
 import LeaguePage from './pages/LeaguePage'; 
 
 function App() {
@@ -18,7 +18,7 @@ function App() {
           <Route index element={<PreparationPage />} />
           <Route path="umpire" element={<UmpireConsole />} />
           <Route path="live" element={<LiveArena />} />
-          {/* 👉 這裡註冊了班際積分榜的網址 */}
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="league" element={<LeaguePage />} /> 
         </Route>
         
