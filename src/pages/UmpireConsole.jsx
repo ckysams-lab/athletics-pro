@@ -77,27 +77,16 @@ const UmpireConsole = () => {
     setSelectedRace({ ...selectedRace, entries: newEntries });
   };
 
-  // 👉 終極防禦：遞迴清除物件中所有 undefined 的值，轉換為 null
-  const sanitizeForFirestore = (obj) => {
-    if (obj === undefined) return null;
-    if (obj === null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
-    
-    const sanitizedObj = {};
-    for (const key in obj) {
-      if (obj[key] !== undefined) {
-        sanitizedObj[key] = sanitizeForFirestore(obj[key]);
-      } else {
-        sanitizedObj[key] = null; // 將 undefined 轉為 null
-      }
-    }
-    return sanitizedObj;
-  };
-
   // 提交官方成績到 Firebase (包含自動計分)
-    // 提交官方成績到 Firebase (包含自動計分)
   const handleSubmitResults = async () => {
     if (!selectedRace) return;
+
+    // 🕵️‍♂️ 安全檢查：確保這場賽事有一個有效的 ID
+    const safeRaceId = selectedRace.id || `${selectedRace.eventId}_FINAL`;
+    if (!safeRaceId || safeRaceId === "undefined_FINAL") {
+      alert("❌ 嚴重的系統錯誤：無法取得賽事的有效 ID！這場賽事無法發佈。");
+      return;
+    }
 
     const missingScores = selectedRace.entries.some(e => e.entryStatus === 'VALID' && e.performanceValue === '');
     if (missingScores) {
@@ -132,7 +121,6 @@ const UmpireConsole = () => {
             originalEntry.points = entry.points;
           }
 
-          // 準備寫入 Log 的資料
           const rawLogData = {
             class: entry.class || "未知",
             studentName: entry.name || "未知",
@@ -144,13 +132,12 @@ const UmpireConsole = () => {
 
           // 👉 暴力淨化大法：去除所有 undefined
           const safeLogData = JSON.parse(JSON.stringify(rawLogData));
-
+          
           const scoreRecordRef = doc(collection(db, 'score_logs'));
           batch.set(scoreRecordRef, safeLogData);
         });
       }
 
-      // 準備更新賽事的資料
       const rawUpdateData = {
         entries: finalizedEntries,
         status: "OFFICIAL", 
@@ -160,8 +147,8 @@ const UmpireConsole = () => {
       // 👉 暴力淨化大法：去除所有 undefined
       const safeUpdateData = JSON.parse(JSON.stringify(rawUpdateData));
 
-      // 更新賽事狀態為 OFFICIAL
-      const raceRef = doc(db, 'races', selectedRace.id);
+      // 使用確保安全的 ID 來取得 Firebase Reference
+      const raceRef = doc(db, 'races', safeRaceId);
       batch.update(raceRef, safeUpdateData);
 
       await batch.commit();
@@ -171,12 +158,11 @@ const UmpireConsole = () => {
       fetchRaces(); 
     } catch (error) {
       console.error("成績發佈失敗:", error);
-      alert("❌ 發佈失敗，請看 Console。");
+      alert(`❌ 發佈失敗: ${error.message}`); 
     } finally {
       setIsSubmitting(false);
     }
   };
-
 
   return (
     <div className="p-8 pb-32">
