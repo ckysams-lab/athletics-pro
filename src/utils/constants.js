@@ -1,5 +1,4 @@
 // src/utils/constants.js
-
 export const EVENT_CATEGORIES = {
   TRACK: '徑項',
   FIELD: '田項',
@@ -23,5 +22,7 @@ export const MASTER_EVENTS = [
   { id: '100M', name: '100米', category: EVENT_CATEGORIES.TRACK, lanes: 8 },
   { id: 'LONG_JUMP', name: '跳遠', category: EVENT_CATEGORIES.FIELD, lanes: null },
   { id: 'SOFTBALL', name: '擲壘球', category: EVENT_CATEGORIES.FIELD, lanes: null },
-  { id: 'WOODBALL', name: '擲木球', category: EVENT_CATEGORIES.FIELD, lanes: null }
+  { id: 'WOODBALL', name: '擲木球', category: EVENT_CATEGORIES.FIELD, lanes: null },
+  // 👉 加入接力賽
+  { id: '4X100M_RELAY', name: '4x100米接力', category: EVENT_CATEGORIES.RELAY, lanes: 8 } 
 ];
