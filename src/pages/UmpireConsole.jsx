@@ -77,6 +77,23 @@ const UmpireConsole = () => {
     setSelectedRace({ ...selectedRace, entries: newEntries });
   };
 
+  // 👉 終極防禦：遞迴清除物件中所有 undefined 的值，轉換為 null
+  const sanitizeForFirestore = (obj) => {
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+    
+    const sanitizedObj = {};
+    for (const key in obj) {
+      if (obj[key] !== undefined) {
+        sanitizedObj[key] = sanitizeForFirestore(obj[key]);
+      } else {
+        sanitizedObj[key] = null; // 將 undefined 轉為 null
+      }
+    }
+    return sanitizedObj;
+  };
+
   // 提交官方成績到 Firebase (包含自動計分)
   const handleSubmitResults = async () => {
     if (!selectedRace) return;
@@ -91,7 +108,6 @@ const UmpireConsole = () => {
     try {
       const batch = writeBatch(db); 
       
-      // 1. 處理成績與排序
       let finalizedEntries = selectedRace.entries.map(entry => ({
         ...entry,
         performanceValue: entry.entryStatus === 'VALID' ? parseFloat(entry.performanceValue) || null : null,
@@ -113,41 +129,31 @@ const UmpireConsole = () => {
           originalEntry.rank = entry.rank;
           originalEntry.points = entry.points;
 
-          // 👉 修正：確保沒有 undefined 的值傳入 Firebase
+          // 將積分寫入班級總分 Log (經過淨化)
           const scoreRecordRef = doc(collection(db, 'score_logs'));
-          batch.set(scoreRecordRef, {
-            class: entry.class || "未知",
-            studentName: entry.name || "未知",
-            eventId: selectedRace.eventId || "未知",
-            points: entry.points || 0,
-            rank: entry.rank || 0,
+          const logData = sanitizeForFirestore({
+            class: entry.class,
+            studentName: entry.name,
+            eventId: selectedRace.eventId,
+            points: entry.points,
+            rank: entry.rank,
             timestamp: new Date().toISOString()
           });
-        });
-
-        // 👉 修正：對於沒有成績的人 (ABS, DQ)，確保他們的 rank 和 points 至少是 null 或 0
-        finalizedEntries.forEach(entry => {
-           if(entry.rank === undefined) entry.rank = null;
-           if(entry.points === undefined) entry.points = 0;
-           // 把 undefined 的 qualification 轉成 null
-           if(entry.qualification === undefined) entry.qualification = null;
-        });
-      } else {
-        // 👉 如果是初賽 (HEAT)，確保沒有遺留的 undefined 屬性
-         finalizedEntries.forEach(entry => {
-           if(entry.qualification === undefined) entry.qualification = null;
+          batch.set(scoreRecordRef, logData);
         });
       }
 
-      // 2. 更新賽事狀態為 OFFICIAL
-      const raceRef = doc(db, 'races', selectedRace.id);
-      batch.update(raceRef, {
+      // 👉 在寫入 Firebase 前，將整份資料送入淨化器過濾
+      const updateData = sanitizeForFirestore({
         entries: finalizedEntries,
         status: "OFFICIAL", 
         updatedAt: new Date().toISOString()
       });
 
-      // 3. 提交所有變更
+      // 更新賽事狀態為 OFFICIAL
+      const raceRef = doc(db, 'races', selectedRace.id);
+      batch.update(raceRef, updateData);
+
       await batch.commit();
 
       alert("✅ 官方成績已發佈！" + (selectedRace.stage === 'FINAL' ? "班際積分已同步派發。" : "大屏幕即將同步。"));
@@ -155,7 +161,7 @@ const UmpireConsole = () => {
       fetchRaces(); 
     } catch (error) {
       console.error("成績發佈失敗:", error);
-      alert("❌ 發佈失敗，請檢查網路連線或 F12 Console。");
+      alert("❌ 發佈失敗，請檢查網路連線。");
     } finally {
       setIsSubmitting(false);
     }
@@ -194,8 +200,8 @@ const UmpireConsole = () => {
                   className={`w-full text-left p-4 rounded-xl transition-all border ${
                     selectedRace?.id === race.id 
                       ? race.stage === 'FINAL' 
-                          ? 'bg-purple-500/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]' // 決賽選中時發紫光
-                          : 'bg-amber-500/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]'  // 初賽選中時發黃光
+                          ? 'bg-purple-500/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]' 
+                          : 'bg-amber-500/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.2)]'  
                       : 'bg-gray-800 border-gray-700 hover:border-gray-500 hover:bg-gray-750'
                   }`}
                 >
