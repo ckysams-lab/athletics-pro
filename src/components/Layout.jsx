@@ -1,5 +1,6 @@
 // src/components/Layout.jsx
 import React from 'react';
+import { Settings } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutDashboard, Users, Timer, MonitorPlay, Printer, Trophy } from 'lucide-react'; // 👉 確保引入了 Trophy
 
@@ -7,7 +8,7 @@ const Layout = () => {
   const navItems = [
     { path: '/', name: '賽事準備中心', icon: <LayoutDashboard size={20} /> },
     { path: '/umpire', name: '裁判終端機', icon: <Timer size={20} /> },
-    // 👉 這是你找不到的積分榜按鈕！
+    { path: '/settings', name: '大會設定', icon: <Settings size={20} /> },
     { path: '/league', name: '班際積分榜', icon: <Trophy size={20} /> }, 
     { path: '/live', name: '大屏幕轉播', icon: <MonitorPlay size={20} /> },
     { path: '/print', name: '列印線道表', icon: <Printer size={20} /> },
