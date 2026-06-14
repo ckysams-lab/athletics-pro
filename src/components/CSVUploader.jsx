@@ -50,7 +50,8 @@ const CSVUploader = ({ onUploadSuccess }) => {
         }
 
         const students = [];
-        const expectedHeaders = ['班別代碼', '班號', '英文姓名', '中文姓名', '性別代碼', '聯絡電話'];
+        // 👉 加入了三個參與項目的預設標題
+        const expectedHeaders = ['班別代碼', '班號', '英文姓名', '中文姓名', '性別代碼', '聯絡電話', '參與項目一', '參與項目二', '參與項目三'];
         const actualHeaders = headerRowIndex !== -1 ? rows[headerRowIndex].map(h => h?.trim()) : expectedHeaders;
 
         for (let i = dataStartIndex; i < rows.length; i++) {
@@ -70,6 +71,9 @@ const CSVUploader = ({ onUploadSuccess }) => {
              studentObj['中文姓名'] = rowData[3]?.trim();
              studentObj['性別代碼'] = rowData[4]?.trim();
              studentObj['聯絡電話'] = rowData[5]?.trim();
+             studentObj['參與項目一'] = rowData[6]?.trim();
+             studentObj['參與項目二'] = rowData[7]?.trim();
+             studentObj['參與項目三'] = rowData[8]?.trim();
           }
           
           students.push(studentObj);
@@ -97,10 +101,22 @@ const CSVUploader = ({ onUploadSuccess }) => {
         const engName = student['英文姓名'] || '';
         const gender = student['性別代碼'] || student['性別'] || '';
         const phone = student['聯絡電話'] || '';
+        
+        // 👉 抓取報名項目 (過濾掉空白的)
+        const events = [student['參與項目一'], student['參與項目二'], student['參與項目三']]
+          .filter(e => e && e.trim() !== '');
 
         if (classCode && classNo) {
           const studentId = `${classCode}_${String(classNo).padStart(2, '0')}`;
           
+          // 根據班別字首決定年級/組別 (例如 6A -> 6年級 -> 甲組)
+          const gradePrefix = classCode.charAt(0);
+          let gradeCode = 'C'; 
+          if (gradePrefix === '6') gradeCode = 'A';
+          if (gradePrefix === '5') gradeCode = 'B';
+          if (gradePrefix === '4') gradeCode = 'C';
+          if (gradePrefix === '3') gradeCode = 'D';
+
           const studentRef = doc(db, 'students', studentId);
           batch.set(studentRef, {
             class: classCode,
@@ -109,7 +125,8 @@ const CSVUploader = ({ onUploadSuccess }) => {
             englishName: engName,
             gender: gender,
             phone: phone,
-            grade: 'C',
+            grade: gradeCode,
+            registeredEvents: events, // 👉 將報名項目陣列存入 Firebase
             updatedAt: new Date().toISOString()
           });
           count++;
@@ -124,7 +141,7 @@ const CSVUploader = ({ onUploadSuccess }) => {
 
       await batch.commit();
       setUploadStats(count);
-      alert(`✅ 成功匯入 ${count} 名學生資料！`);
+      alert(`✅ 成功匯入 ${count} 名學生資料與報名紀錄！`);
       
       if (onUploadSuccess) onUploadSuccess();
       
@@ -138,14 +155,11 @@ const CSVUploader = ({ onUploadSuccess }) => {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl mb-8">
-      <h2 className="text-xl font-bold text-emerald-400 mb-4">📂 匯入 WebSAMS 學生名單</h2>
+      <h2 className="text-xl font-bold text-emerald-400 mb-4">📂 匯入 WebSAMS 學生名單 (含報名紀錄)</h2>
       <div className="flex flex-col md:flex-row gap-4 items-center">
         
-        {/* 上傳區域的外框，維持 h-24 */}
         <label className="flex flex-col items-center justify-center w-full md:w-1/2 h-24 border-2 border-dashed border-gray-600 hover:border-emerald-500 rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-800/50">
           <div className="flex flex-col items-center justify-center pt-3 pb-4">
-            
-            {/* 👉 關鍵修正：我加入了 style={{ width: '24px', height: '24px' }} 強制限制 SVG 的最大尺寸，不讓它暴走 */}
             <svg 
               className="mb-2 text-gray-400" 
               style={{ width: '24px', height: '24px' }}
@@ -156,7 +170,6 @@ const CSVUploader = ({ onUploadSuccess }) => {
             >
               <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
             </svg>
-
             <p className="mb-0 text-sm text-gray-400">
               <span className="font-semibold">{isUploading ? "處理中..." : "點擊上傳 WebSAMS 匯出的 CSV"}</span>
             </p>
@@ -167,7 +180,7 @@ const CSVUploader = ({ onUploadSuccess }) => {
         <div className="w-full md:w-1/2 p-4 bg-gray-800 rounded-lg">
           <h3 className="text-amber-400 font-bold mb-1">💡 支援的欄位格式：</h3>
           <code className="text-xs bg-gray-950 p-2 rounded block text-emerald-300 overflow-x-auto whitespace-nowrap">
-            [0]班別代碼, [1]班號, [2]英文姓名, [3]中文姓名, [4]性別代碼, [5]聯絡電話
+            [0]班別, [1]班號, [2]英文, [3]中文, [4]性別, [5]電話, <span className="text-purple-400 font-bold">[6]項目一, [7]項目二, [8]項目三</span>
           </code>
           {uploadStats !== null && (
             <p className="mt-2 text-sm text-emerald-400 font-bold animate-pulse">🎉 上次成功匯入：{uploadStats} 筆資料</p>
