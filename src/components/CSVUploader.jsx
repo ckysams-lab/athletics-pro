@@ -23,6 +23,7 @@ const CSVUploader = ({ onUploadSuccess }) => {
         let headerRowIndex = -1;
         let dataStartIndex = -1;
 
+        // 尋找標題行
         for (let i = 0; i < Math.min(rows.length, 10); i++) {
           const rowString = rows[i].join('').replace(/\s+/g, '');
           if (rowString.includes('班別代碼') || rowString.includes('班別')) {
@@ -32,6 +33,7 @@ const CSVUploader = ({ onUploadSuccess }) => {
           }
         }
 
+        // 如果找不到標題行，嘗試尋找第一筆像資料的列
         if (headerRowIndex === -1) {
              for (let i = 0; i < Math.min(rows.length, 10); i++) {
                  const firstCol = rows[i][0]?.trim();
@@ -50,32 +52,45 @@ const CSVUploader = ({ onUploadSuccess }) => {
         }
 
         const students = [];
-        // 👉 加入了三個參與項目的預設標題
-        const expectedHeaders = ['班別代碼', '班號', '英文姓名', '中文姓名', '性別代碼', '聯絡電話', '參與項目一', '參與項目二', '參與項目三'];
-        const actualHeaders = headerRowIndex !== -1 ? rows[headerRowIndex].map(h => h?.trim()) : expectedHeaders;
+        const headers = headerRowIndex !== -1 ? rows[headerRowIndex].map(h => h?.trim()) : [];
 
         for (let i = dataStartIndex; i < rows.length; i++) {
           const rowData = rows[i];
           if (rowData.length < 2) continue;
 
           const studentObj = {};
-          
+          const rawCheckedEvents = [];
+
           if (headerRowIndex !== -1) {
-             actualHeaders.forEach((headerName, index) => {
-                if (headerName) studentObj[headerName] = rowData[index] ? rowData[index].trim() : '';
+             headers.forEach((headerName, index) => {
+                if (!headerName) return;
+                
+                const cellValue = rowData[index] ? rowData[index].trim() : '';
+                studentObj[headerName] = cellValue;
+
+                // 判斷是否打勾 (✔️, v, V, Y, 1, x, X)
+                const isChecked = cellValue === '✔️' || cellValue.toLowerCase() === 'v' || cellValue === '✓' || cellValue === '1' || cellValue.toLowerCase() === 'y' || cellValue.toLowerCase() === 'x';
+                
+                // 排除基本資料欄位
+                const isBasicInfoField = ['班別', '班號', '姓名', '性別', '電話', '聯絡'].some(keyword => headerName.includes(keyword));
+                
+                if (isChecked && !isBasicInfoField) {
+                  // 👉 核心：清理標題名稱，讓它與系統名稱 (constants.js) 匹配
+                  // 移除空白，並且把「跑」字拿掉 (例如 "60米跑" -> "60米")
+                  let cleanEventName = headerName.replace(/\s+/g, '').replace('跑', '');
+                  rawCheckedEvents.push(cleanEventName);
+                }
              });
           } else {
+             // 降級備用模式 (沒有標題的情況)
              studentObj['班別代碼'] = rowData[0]?.trim();
              studentObj['班號'] = rowData[1]?.trim();
              studentObj['英文姓名'] = rowData[2]?.trim();
              studentObj['中文姓名'] = rowData[3]?.trim();
-             studentObj['性別代碼'] = rowData[4]?.trim();
-             studentObj['聯絡電話'] = rowData[5]?.trim();
-             studentObj['參與項目一'] = rowData[6]?.trim();
-             studentObj['參與項目二'] = rowData[7]?.trim();
-             studentObj['參與項目三'] = rowData[8]?.trim();
+             studentObj['性別'] = rowData[4]?.trim();
           }
           
+          studentObj.rawCheckedEvents = rawCheckedEvents;
           students.push(studentObj);
         }
 
@@ -100,22 +115,28 @@ const CSVUploader = ({ onUploadSuccess }) => {
         const chiName = student['中文姓名'] || student['姓名'];
         const engName = student['英文姓名'] || '';
         const gender = student['性別代碼'] || student['性別'] || '';
-        const phone = student['聯絡電話'] || '';
-        
-        // 👉 抓取報名項目 (過濾掉空白的)
-        const events = [student['參與項目一'], student['參與項目二'], student['參與項目三']]
-          .filter(e => e && e.trim() !== '');
+        const phone = student['聯絡電話'] || student['家長聯絡電話'] || '';
 
         if (classCode && classNo) {
           const studentId = `${classCode}_${String(classNo).padStart(2, '0')}`;
           
-          // 根據班別字首決定年級/組別 (例如 6A -> 6年級 -> 甲組)
           const gradePrefix = classCode.charAt(0);
           let gradeCode = 'C'; 
-          if (gradePrefix === '6') gradeCode = 'A';
-          if (gradePrefix === '5') gradeCode = 'B';
-          if (gradePrefix === '4') gradeCode = 'C';
-          if (gradePrefix === '3') gradeCode = 'D';
+          let gradeName = '丙組';
+          if (gradePrefix === '6') { gradeCode = 'A'; gradeName = '甲組'; }
+          if (gradePrefix === '5') { gradeCode = 'B'; gradeName = '乙組'; }
+          if (gradePrefix === '4') { gradeCode = 'C'; gradeName = '丙組'; }
+          if (gradePrefix === '3') { gradeCode = 'D'; gradeName = '丁組'; }
+
+          const isMale = gender.toUpperCase() === 'M' || gender === '男';
+          const genderName = isMale ? '男子' : '女子';
+
+          const finalRegisteredEvents = student.rawCheckedEvents.map(rawEventName => {
+            if (rawEventName.includes('男') || rawEventName.includes('女') || rawEventName.includes('組')) {
+              return rawEventName;
+            }
+            return `${genderName}${gradeName}${rawEventName}`;
+          });
 
           const studentRef = doc(db, 'students', studentId);
           batch.set(studentRef, {
@@ -125,8 +146,8 @@ const CSVUploader = ({ onUploadSuccess }) => {
             englishName: engName,
             gender: gender,
             phone: phone,
-            grade: gradeCode,
-            registeredEvents: events, // 👉 將報名項目陣列存入 Firebase
+            grade: gradeCode, 
+            registeredEvents: finalRegisteredEvents, 
             updatedAt: new Date().toISOString()
           });
           count++;
@@ -155,32 +176,27 @@ const CSVUploader = ({ onUploadSuccess }) => {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl mb-8">
-      <h2 className="text-xl font-bold text-emerald-400 mb-4">📂 匯入 WebSAMS 學生名單 (含報名紀錄)</h2>
+      <h2 className="text-xl font-bold text-emerald-400 mb-4">📂 匯入 WebSAMS 學生名單 (智能組別判斷)</h2>
       <div className="flex flex-col md:flex-row gap-4 items-center">
         
         <label className="flex flex-col items-center justify-center w-full md:w-1/2 h-24 border-2 border-dashed border-gray-600 hover:border-emerald-500 rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-800/50">
           <div className="flex flex-col items-center justify-center pt-3 pb-4">
-            <svg 
-              className="mb-2 text-gray-400" 
-              style={{ width: '24px', height: '24px' }}
-              aria-hidden="true" 
-              xmlns="http://www.w3.org/2000/svg" 
-              fill="none" 
-              viewBox="0 0 20 16"
-            >
+            <svg className="w-6 h-6 mb-2 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
               <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
             </svg>
             <p className="mb-0 text-sm text-gray-400">
-              <span className="font-semibold">{isUploading ? "處理中..." : "點擊上傳 WebSAMS 匯出的 CSV"}</span>
+              <span className="font-semibold">{isUploading ? "處理中..." : "點擊上傳 WebSAMS 打勾表格"}</span>
             </p>
           </div>
           <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
         </label>
 
         <div className="w-full md:w-1/2 p-4 bg-gray-800 rounded-lg">
-          <h3 className="text-amber-400 font-bold mb-1">💡 支援的欄位格式：</h3>
+          <h3 className="text-amber-400 font-bold mb-1">💡 智能解析格式：</h3>
+          <p className="text-xs text-gray-400 mb-2">系統將根據學生的「班別與性別」，自動把打勾項目加上組別前綴 (例如: 100米跑 $\rightarrow$ 男子甲組100米)。</p>
           <code className="text-xs bg-gray-950 p-2 rounded block text-emerald-300 overflow-x-auto whitespace-nowrap">
-            [0]班別, [1]班號, [2]英文, [3]中文, [4]性別, [5]電話, <span className="text-purple-400 font-bold">[6]項目一, [7]項目二, [8]項目三</span>
+            [基本資料] ..., <span className="text-purple-400 font-bold">60米跑, 100米跑, 跳遠, 擲壘球</span> <br/>
+            <span className="text-gray-500">6A, M, ... , ✔️ , , ✔️, ✔️</span>
           </code>
           {uploadStats !== null && (
             <p className="mt-2 text-sm text-emerald-400 font-bold animate-pulse">🎉 上次成功匯入：{uploadStats} 筆資料</p>
