@@ -26,14 +26,13 @@ const CSVUploader = ({ onUploadSuccess }) => {
         // 尋找標題行
         for (let i = 0; i < Math.min(rows.length, 10); i++) {
           const rowString = rows[i].join('').replace(/\s+/g, '');
-          if (rowString.includes('班別代碼') || rowString.includes('班別')) {
+          if (rowString.includes('班別代碼') || rowString.includes('班別') || rowString.includes('姓名')) {
             headerRowIndex = i;
             dataStartIndex = i + 1;
             break;
           }
         }
 
-        // 如果找不到標題行，嘗試尋找第一筆像資料的列
         if (headerRowIndex === -1) {
              for (let i = 0; i < Math.min(rows.length, 10); i++) {
                  const firstCol = rows[i][0]?.trim();
@@ -68,21 +67,17 @@ const CSVUploader = ({ onUploadSuccess }) => {
                 const cellValue = rowData[index] ? rowData[index].trim() : '';
                 studentObj[headerName] = cellValue;
 
-                // 判斷是否打勾 (✔️, v, V, Y, 1, x, X)
-                const isChecked = cellValue === '✔️' || cellValue.toLowerCase() === 'v' || cellValue === '✓' || cellValue === '1' || cellValue.toLowerCase() === 'y' || cellValue.toLowerCase() === 'x';
+                // 👉 終極寬鬆判斷：只要格子裡有東西，且不是 0、N、False，就當作有報名！
+                const isChecked = cellValue !== '' && !['0', 'n', 'no', 'false', 'f'].includes(cellValue.toLowerCase());
                 
-                // 排除基本資料欄位
-                const isBasicInfoField = ['班別', '班號', '姓名', '性別', '電話', '聯絡'].some(keyword => headerName.includes(keyword));
+                const isBasicInfoField = ['班別', '班號', '姓名', '性別', '電話', '聯絡', '學號'].some(keyword => headerName.includes(keyword));
                 
                 if (isChecked && !isBasicInfoField) {
-                  // 👉 核心：清理標題名稱，讓它與系統名稱 (constants.js) 匹配
-                  // 移除空白，並且把「跑」字拿掉 (例如 "60米跑" -> "60米")
                   let cleanEventName = headerName.replace(/\s+/g, '').replace('跑', '');
                   rawCheckedEvents.push(cleanEventName);
                 }
              });
           } else {
-             // 降級備用模式 (沒有標題的情況)
              studentObj['班別代碼'] = rowData[0]?.trim();
              studentObj['班號'] = rowData[1]?.trim();
              studentObj['英文姓名'] = rowData[2]?.trim();
@@ -144,7 +139,7 @@ const CSVUploader = ({ onUploadSuccess }) => {
             classNo: Number(classNo),
             name: chiName || engName, 
             englishName: engName,
-            gender: gender,
+            gender: gender.toUpperCase(), // 確保大小寫統一
             phone: phone,
             grade: gradeCode, 
             registeredEvents: finalRegisteredEvents, 
@@ -181,7 +176,14 @@ const CSVUploader = ({ onUploadSuccess }) => {
         
         <label className="flex flex-col items-center justify-center w-full md:w-1/2 h-24 border-2 border-dashed border-gray-600 hover:border-emerald-500 rounded-lg cursor-pointer transition-colors bg-gray-800 hover:bg-gray-800/50">
           <div className="flex flex-col items-center justify-center pt-3 pb-4">
-            <svg className="w-6 h-6 mb-2 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+            <svg 
+              className="mb-2 text-gray-400" 
+              style={{ width: '24px', height: '24px' }}
+              aria-hidden="true" 
+              xmlns="http://www.w3.org/2000/svg" 
+              fill="none" 
+              viewBox="0 0 20 16"
+            >
               <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
             </svg>
             <p className="mb-0 text-sm text-gray-400">
